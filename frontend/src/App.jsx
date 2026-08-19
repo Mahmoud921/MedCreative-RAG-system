@@ -1,10 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import logo from './assets/logo.png';
-import bgImage from './assets/background.png';
 import KidneyModel from './CKDCalculatorWidget';
 import './App.css';
 
+// ─── Read saved theme or fall back to dark ───
+const getSavedTheme = () =>
+  localStorage.getItem('medcreative-theme') || 'dark';
+
 export default function App() {
+  const [theme, setTheme] = useState(getSavedTheme);
+
+  // Apply theme to <html> so CSS vars work everywhere
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('medcreative-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () =>
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+
   const [messages, setMessages] = useState([
     {
       sender: 'bot',
@@ -154,7 +168,18 @@ export default function App() {
   };
 
   return (
-    <div className="page-wrapper">
+    <div className="page-wrapper" data-theme={theme}>
+      {/* Background overlay image — switches per theme via inline style */}
+      <div
+        className="bg-overlay"
+        style={{
+          backgroundImage:
+            theme === 'light'
+              ? 'url(/background_light.png)'
+              : 'url(/background.png)',
+        }}
+      />
+
       {/* Sidebar Controls */}
       <aside className="sidebar">
         <div>
@@ -202,20 +227,22 @@ export default function App() {
         </div>
 
         <div className="sidebar-footer">
-          <p>KDIGO Guidelines v2.0</p>
+          {/* Theme Toggle */}
+          <button
+            className="theme-toggle-btn"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+          >
+            <span className="theme-toggle-icon">
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </span>
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
+          <p style={{ marginTop: '12px' }}>KDIGO Guidelines v2.0</p>
         </div>
       </aside>
 
-      {/* Main Container with Raw Background Image */}
-      <main 
-        className="app-container"
-        style={{
-          backgroundImage: `url(${bgImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
-        }}
-      >
+      <main className="app-container">
         <div className="dashboard-header">
   <h1>🥼🩺 Chronic Kidney Disease (CKD) - RAG</h1>
   <p className="subtitle">Ask clinical questions or query official guidelines with RAG system 👨‍⚕️</p>
