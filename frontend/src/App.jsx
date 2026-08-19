@@ -37,6 +37,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [retrievalK, setRetrievalK] = useState(3);
   const [scoreThreshold, setScoreThreshold] = useState(0.85);
+
+  // New Voice States
+  const [isListening, setIsListening] = useState(false);
+  const [speakingMessageIndex, setSpeakingMessageIndex] = useState(null);
   
   const chatBoxRef = useRef(null);
   const latestMessageRef = useRef(null);
@@ -46,6 +50,54 @@ export default function App() {
       latestMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [messages, loading]);
+
+  // Clean text-to-speech handler (reads only the answer text cleanly)
+  const speakAnswer = (text, index) => {
+    if (!('speechSynthesis' in window)) {
+      alert("Text-to-speech is not supported in this browser.");
+      return;
+    }
+
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageIndex(null);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 1.0;
+
+    utterance.onstart = () => setSpeakingMessageIndex(index);
+    utterance.onend = () => setSpeakingMessageIndex(null);
+    utterance.onerror = () => setSpeakingMessageIndex(null);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Voice recognition handler for patients with typing difficulties
+  const handleVoiceInput = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please use Google Chrome.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+
+    recognition.onresult = (event) => {
+      const speechToText = event.results[0][0].transcript;
+      setInput(speechToText);
+    };
+
+    recognition.start();
+  };
 
   const renderFormattedText = (text) => {
     if (!text) return null;
@@ -185,9 +237,9 @@ export default function App() {
         <div>
           <div className="sidebar-header">
             <div className="sidebar-brand">
-  <h2>🥼🩺 MedCreative</h2>
-  <span>CLINICAL RAG ASSISTANT</span>
-</div>
+              <h2>🥼🩺 MedCreative</h2>
+              <span>CLINICAL RAG ASSISTANT</span>
+            </div>
             <img src={logo} alt="MedCreative Logo" className="sidebar-logo" />
           </div>
 
@@ -244,9 +296,9 @@ export default function App() {
 
       <main className="app-container">
         <div className="dashboard-header">
-  <h1>🥼🩺 Chronic Kidney Disease (CKD) - RAG</h1>
-  <p className="subtitle">Ask clinical questions or query official guidelines with RAG system 👨‍⚕️</p>
-</div>
+          <h1>🥼🩺 Chronic Kidney Disease (CKD) - RAG</h1>
+          <p className="subtitle">Ask clinical questions or query official guidelines with RAG system 👨‍⚕️</p>
+        </div>
 
         {/* Chat Feed */}
         <div className="chat-box" ref={chatBoxRef}>
@@ -273,6 +325,28 @@ export default function App() {
                         ) : (
                           renderFormattedText(msg.text)
                         )}
+                      </div>
+
+                      {/* Text-to-Speech Audio Readout Button (Reads only answer text) */}
+                      <div style={{ marginTop: '10px' }}>
+                        <button 
+                          type="button"
+                          onClick={() => speakAnswer(msg.text, index)}
+                          style={{
+                            background: speakingMessageIndex === index ? '#ff4d4d' : '#2b6cb0',
+                            color: '#white',
+                            border: 'none',
+                            padding: '5px 10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            display: 'inline-flex',
+                            alignItem: 'center',
+                            gap: '5px'
+                          }}
+                        >
+                          {speakingMessageIndex === index ? '🛑 Stop Reading' : '🔊 Read Answer Aloud'}
+                        </button>
                       </div>
 
                       {/* RAG Triad & Evaluation Metrics Panel */}
@@ -348,19 +422,37 @@ export default function App() {
           )}
         </div>
 
-        {/* Input Bar */}
+        {/* Input Bar with Voice Recognition */}
         <form className="chat-form" onSubmit={handleSubmit}>
-          <label className="input-label" htmlFor="chatInput">Clinical Query / Message</label>
-          <div className="input-wrapper">
+          <label className="input-label" htmlFor="chatInput">Clinical Query / Message (Type or Voice)</label>
+          <div className="input-wrapper" style={{ display: 'flex', gap: '8px' }}>
             <input 
               id="chatInput"
               type="text" 
               className="chat-input"
-              placeholder="Ask a clinical question or greet the assistant..." 
+              placeholder="Ask a clinical question or use voice input..." 
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}
+              style={{ flex: 1 }}
             />
+            <button 
+              type="button" 
+              onClick={handleVoiceInput} 
+              disabled={loading}
+              style={{
+                background: isListening ? '#e53e3e' : '#4a5568',
+                color: '#fff',
+                border: 'none',
+                padding: '0 14px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+              title="Speak query for accessibility"
+            >
+              {isListening ? "🎙️ Listening..." : "🎤 Speak"}
+            </button>
             <button type="submit" className="chat-button" disabled={loading}>
               Send
             </button>
