@@ -4,18 +4,26 @@ import bgImage from "./assets/background.png";
 import KidneyModel from "./CKDCalculatorWidget";
 import "./App.css";
 
-// UPDATED: Dynamic backend URL with smart fallback detection
+// Use the active backend URL from Vercel or local env, and fail clearly if not configured.
 const getApiUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  console.log("Detected API URL:", envUrl);
-  if (envUrl && envUrl !== "https://your-backend-url.com") {
-    return envUrl;
+  const candidates = [
+    import.meta.env.VITE_API_URL,
+    import.meta.env.VITE_BACKEND_URL,
+    import.meta.env.VITE_BACKEND,
+    import.meta.env.PUBLIC_API_URL
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && candidate.trim() && candidate !== "https://your-backend-url.com") {
+      return candidate.trim().replace(/\/+$/, "");
+    }
   }
-  // If running locally, point to local server, else default safely
+
   if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
     return "http://localhost:8000";
   }
-  return "https://your-backend-url.com";
+
+  return "";
 };
 
 const API_URL = getApiUrl();
@@ -384,9 +392,8 @@ export default function App() {
     }
 
     try {
-      // Check if API_URL is still placeholder or fails fetch
-      if (API_URL.includes("your-backend-url.com")) {
-        throw new Error("Backend URL not configured or online backend unreachable.");
+      if (!API_URL) {
+        throw new Error("VITE_API_URL is not configured in the deployment environment.");
       }
 
       const response = await fetch(`${API_URL}/chat`, {
@@ -450,7 +457,7 @@ export default function App() {
               context_relevance_score: 0.92,
               hallucination_risk: "Low"
             },
-            warningMessage: "Running in online safe fallback mode (Connect your active backend endpoint for custom vector database lookups).",
+            warningMessage: "Safe fallback mode is active. Set VITE_API_URL in Vercel to your live backend endpoint for custom vector database lookups.",
             currentLanguage: language,
             cachedTranslation: null,
             translating: false,
