@@ -7,6 +7,7 @@ import "./App.css";
 // UPDATED: Dynamic backend URL with smart fallback detection
 const getApiUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
+  console.log("Detected API URL:", envUrl);
   if (envUrl && envUrl !== "https://your-backend-url.com") {
     return envUrl;
   }
