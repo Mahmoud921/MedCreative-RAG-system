@@ -1,4 +1,11 @@
 {
+  "name": "react-project-ckd",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "start-backend": "cd backend && python -m uvicorn main:app --reload --port 8000"
+  },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
