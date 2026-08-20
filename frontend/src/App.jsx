@@ -27,6 +27,7 @@ const getApiUrl = () => {
 };
 
 const API_URL = getApiUrl();
+// console.log("API_URL", API_URL);
 
 /* =========================================================
    LANGUAGE
