@@ -4,8 +4,9 @@ import bgImage from "./assets/background.png";
 import KidneyModel from "./CKDCalculatorWidget";
 import "./App.css";
 
+// UPDATED: Replace "https://your-backend-url.com" with your actual deployed FastAPI server URL (e.g., from Render, Railway, or Hugging Face)
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_URL || "https://your-backend-url.com";
 
 /* =========================================================
    LANGUAGE
@@ -88,10 +89,7 @@ const formatAnswer = (text = "") => {
     return <span>{cleanMarkdown(text)}</span>;
   }
 
-  // Split text intelligently by sentences or existing rough divisions to make clean structured bullets
-  // We'll clean markdown, split by periods/semicolons or linebreaks to turn long walls into cards/bullets.
   const rawLines = text.split(/\n+/).flatMap((line) => {
-    // If a line is super long without breaks, split it into sentences for clean reading
     if (line.length > 120) {
       return line.split(/(?<=[.?!])\s+/);
     }
@@ -105,10 +103,7 @@ const formatAnswer = (text = "") => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
       {parsedItems.map((item, index) => {
-        // Strip out existing bullet markers if any
         const cleanedItem = item.replace(/^[-*•]\s*/, "").replace(/^\d+\.\s*/, "");
-        
-        // Highlight key terms wrapped in bold or split them nicely
         const parts = cleanedItem.split(/(\*\*.*?\*\*)/g);
 
         return (
@@ -367,13 +362,13 @@ export default function App() {
         previous.map((item, itemIndex) =>
           itemIndex === index
             ? {
-                ...item,
-                originalText: message.originalText || message.text,
-                cachedTranslation: translated,
-                text: translated,
-                currentLanguage: targetLanguage,
-                translating: false
-              }
+              ...item,
+              originalText: message.originalText || message.text,
+              cachedTranslation: translated,
+              text: translated,
+              currentLanguage: targetLanguage,
+              translating: false
+            }
             : item
         )
       );
@@ -457,12 +452,24 @@ export default function App() {
         try {
           const errorData = await response.json();
           if (errorData?.detail) errorMessage = errorData.detail;
-        } catch {}
+        } catch { }
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
       const finalAnswer = data.answer || "No answer was returned by the backend.";
+
+      let evalMetrics = data.evaluation_metrics || null;
+      if (evalMetrics) {
+        const cRel = Number(evalMetrics.context_relevance_score ?? 1);
+        const faith = Number(evalMetrics.faithfulness_score ?? 1);
+        if (cRel < 0.3 || faith < 0.8) {
+          evalMetrics = {
+            ...evalMetrics,
+            hallucination_risk: "High (Low Context/Faithfulness)"
+          };
+        }
+      }
 
       setMessages((previous) => [
         ...previous,
@@ -473,7 +480,7 @@ export default function App() {
           userPromptText: rawInput,
           sources: data.sources || [],
           isConversational: data.is_conversational || false,
-          evaluationMetrics: data.evaluation_metrics || null,
+          evaluationMetrics: evalMetrics,
           warningMessage: data.warning_message || null,
           currentLanguage: data.language || language,
           cachedTranslation: null,
@@ -553,9 +560,21 @@ export default function App() {
   ];
 
   return (
-    <div className={`page-wrapper ${isDarkMode ? "dark-theme" : "light-theme"}`}>
-
-      {/* QUICK PRESETS TOP RIGHT */}
+    <div
+      className={`page-wrapper ${isDarkMode ? "dark-theme" : "light-theme"}`}
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        width: "100vw",
+        height: "100vh",
+        maxHeight: "100vh",
+        overflow: "hidden",
+        boxSizing: "border-box",
+        position: "fixed",
+        top: 0,
+        left: 0
+      }}
+    >
       <div style={{ position: "fixed", top: "20px", right: "30px", zIndex: 999999 }}>
         <button
           onClick={() => setIsPresetMenuOpen((previous) => !previous)}
@@ -592,10 +611,10 @@ export default function App() {
               borderRadius: "12px",
               padding: "14px",
               width: "360px",
-              boxShadow: "0 15px 35px rgba(0, 0, 0, 0.3)"
+              boxShadow: "0 15px 35px rgba(0, 0, 0, 0.3)",
+              zIndex: 9999999
             }}
           >
-            {/* TABS HEADER */}
             <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
               <button
                 onClick={() => setPresetTab("questions")}
@@ -719,7 +738,6 @@ export default function App() {
         )}
       </div>
 
-      {/* SYMPTOMS MODAL */}
       {isSymptomsModalOpen && (
         <div
           style={{
@@ -728,7 +746,7 @@ export default function App() {
             width: "100vw",
             height: "100vh",
             background: "rgba(0, 0, 0, 0.7)",
-            zIndex: 9999999,
+            zIndex: 99999999,
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -928,15 +946,20 @@ export default function App() {
         </div>
       )}
 
-      {/* SIDEBAR */}
       <aside
         className="sidebar"
         style={{
+          width: "320px",
+          minWidth: "320px",
+          maxWidth: "320px",
+          height: "100%",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          height: "100vh",
-          overflowY: "auto"
+          flexShrink: 0,
+          boxSizing: "border-box",
+          overflowY: "auto",
+          zIndex: 10
         }}
       >
         <div>
@@ -976,13 +999,41 @@ export default function App() {
           </div>
         </div>
 
-        <div className="sidebar-footer">
-          <p>KDIGO Guidelines v2.0</p>
+        <div className="sidebar-footer" style={{ paddingBottom: "20px" }}>
+          <button
+            type="button"
+            className="theme-toggle-modern-btn"
+            onClick={() => setIsDarkMode((previous) => !previous)}
+            style={{
+              width: "100%",
+              padding: "12px 16px",
+              borderRadius: "10px",
+              border: "1px solid rgba(150,150,150,0.3)",
+              backgroundColor: isDarkMode ? "#ffffff" : "#1e293b",
+              color: isDarkMode ? "#0f172a" : "#ffffff",
+              fontWeight: "700",
+              cursor: "pointer",
+              marginBottom: "15px"
+            }}
+          >
+            {isDarkMode ? "☀️ Switch to Light Mode" : "🌙 Switch to Dark Mode"}
+          </button>
+
+          <div className="control-section" style={{ marginTop: "10px", borderTop: "1px solid rgba(150,150,150,0.2)", paddingTop: "12px" }}>
+            <h3 style={{ fontSize: "0.9rem" }}>Parameters</h3>
+            <div className="control-group" style={{ marginBottom: "8px" }}>
+              <label>Retrieval K: {retrievalK}</label>
+              <input type="range" min="1" max="10" value={retrievalK} onChange={(e) => setRetrievalK(Number(e.target.value))} style={{ width: "100%" }} />
+            </div>
+            <div className="control-group">
+              <label>Distance Threshold: {scoreThreshold}</label>
+              <input type="range" min="0.1" max="1.5" step="0.05" value={scoreThreshold} onChange={(e) => setScoreThreshold(Number(e.target.value))} style={{ width: "100%" }} />
+            </div>
+          </div>
         </div>
       </aside>
 
-      {/* Main Container with Raw Background Image */}
-      <main 
+      <main
         className="app-container"
         style={{
           backgroundImage: `url(${bgImage})`,
@@ -992,15 +1043,17 @@ export default function App() {
           position: "relative",
           display: "flex",
           flexDirection: "column",
-          height: "100vh",
-          overflow: "hidden"
+          flex: 1,
+          height: "100%",
+          overflow: "hidden",
+          boxSizing: "border-box"
         }}
       >
-        <div className="dashboard-header" style={{ flexShrink: 0 }}>
-          <h1 style={{ display: "flex", alignItems: "center", gap: "10px", justifyContent: "center" }}>
+        <div className="dashboard-header" style={{ flexShrink: 0, padding: "15px 20px" }}>
+          <h1 style={{ display: "flex", alignItems: "center", gap: "10px", justifyContent: "center", margin: 0, fontSize: "1.5rem" }}>
             <span>❤️</span> 🥼🩺 Chronic Kidney Disease (CKD) - RAG
           </h1>
-          <p className="subtitle">Clinical Question → Answer → Evidence → Recommendations → Risk/Safety Report 👨‍⚕️</p>
+          <p className="subtitle" style={{ margin: "4px 0 0 0", textAlign: "center", fontSize: "0.85rem" }}>Clinical Question → Answer → Evidence → Recommendations → Risk/Safety Report 👨‍⚕️</p>
         </div>
 
         <div
@@ -1017,7 +1070,10 @@ export default function App() {
           {messages.map((message, index) => {
             const isBot = message.sender === "bot";
             const metrics = message.evaluationMetrics;
-            const highRisk = metrics && (String(metrics.hallucination_risk || "").toLowerCase().includes("high") || Number(metrics.faithfulness_score) < 0.8);
+            const contextRel = Number(metrics?.context_relevance_score ?? 1);
+            const faith = Number(metrics?.faithfulness_score ?? 1);
+
+            const highRisk = metrics && (contextRel < 0.3 || faith < 0.8 || String(metrics.hallucination_risk || "").toLowerCase().includes("high"));
             const isSmallOutput = message.text && message.text.length < 80;
 
             return (
@@ -1077,7 +1133,7 @@ export default function App() {
                             <div className="metrics-header">🛡️ RISK & SAFETY REPORT</div>
                             <div className="metrics-grid">
                               <div className="metric-tag">
-                                Faithfulness: <strong>{Number(metrics.faithfulness_score) >= 0.8 ? " 🟢 ✔️" : " 🔴 ❌"} {metrics.faithfulness_score}</strong>
+                                Faithfulness: <strong>{faith >= 0.8 ? " 🟢 ✔️" : " 🔴 ❌"} {metrics.faithfulness_score}</strong>
                               </div>
                               <div className="metric-tag">
                                 Answer Relevance: <strong>{metrics.answer_relevance_score}</strong>
@@ -1086,7 +1142,7 @@ export default function App() {
                                 Context Relevance: <strong>{metrics.context_relevance_score}</strong>
                               </div>
                               <div className={`metric-tag ${highRisk ? "risk-high" : "risk-low"}`}>
-                                Risk: <strong>{metrics.hallucination_risk}</strong>
+                                Risk: <strong>{highRisk ? "High" : metrics.hallucination_risk}</strong>
                               </div>
                             </div>
                           </div>
